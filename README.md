@@ -183,7 +183,7 @@ Results are kept small so a conversation doesn't fill up with raw data.
 
 - **Lists return one page**: 20 rows by default, up to 50, with the total for the whole query, a
   ready-made call for the next page and a link to each row in the Assetnote UI. Paging stops at row 2,500.
-- **"How many" questions** are answered with a count, without listing rows.
+- **"How many" questions** are answered from a list's total, reading one row.
 - **"All of it" questions** are answered with an export. The assistant previews the export and tells you
   the row count, and should start it only after you agree. The file stays on your instance for 14 days:
   you download it from the Assetnote UI through the link the assistant gives you. The server never
@@ -193,9 +193,9 @@ Results are kept small so a conversation doesn't fill up with raw data.
 - **Exposures** default to unresolved findings and leave out hygiene findings, matching Assetnote's own
   statistics. Ask for another status, or for hygiene findings, to change that.
 
-**Filters and sorts.** The assistant builds filters from your question. Under the hood, the list, count
-and export tools take filters as `{field, op, value}` objects (with `rel` for a related record, such as
-`preflightMetadata` or `tags`) and sorts as `{field, dir}` with `dir` `ASC` or `DESC`. Operators are
+**Filters and sorts.** The assistant builds filters from your question. Under the hood, the list and
+export tools take filters as `{field, op, value}` objects (with `rel` for a related record, such as
+`preflightMetadata` or `tags`; each tool lists the related records it accepts) and sorts as `{field, dir}` with `dir` `ASC` or `DESC`. Operators are
 `EQ`, `NOT`, `LT`, `LTE`, `GT`, `GTE`, `CONTAINS` and `DOES_NOT_CONTAIN`. Dates take an ISO datetime or a
 time relative to now, such as `-7d`, `-24h` or `+30d`. If Assetnote rejects a filter, the error names the
 clause and lists the fields that can be filtered.
@@ -210,7 +210,9 @@ your credential's Assetnote role allows.
   `confirm: true`. Ask the assistant to show you the preview before it confirms.
 - **Explicit records only.** Changes take a list of ids (up to 500 assets, or one asset group), never a
   filter, so a change can't spread to records you didn't name. Records already in the requested state are
-  not sent again.
+  not sent again. The exception is importing hosts: a host is skipped only once it is an asset, so
+  importing the same hosts again before discovery has created them, or for names that don't resolve,
+  sends them to discovery again.
 - **Some changes start scanning.** Assetnote starts discovering or scanning targets when you:
   - turn monitoring on;
   - import hosts;
@@ -249,7 +251,7 @@ All tool names start with `assetnote_`.
 | Tool | What it does |
 |---|---|
 | `list_assets` | A page of assets, scoped to a technology (and version), a technology category (ids from `find_technology` or `list_technologies`), a service or TLS certificate (ids from `get_asset`'s services and certificates), an asset group or verified assets, and narrowed with filters. |
-| `get_asset` | One asset; optionally its technologies, services, certificates, DNS records, tags, notes, screenshots, crawled URLs and WHOIS organisations. |
+| `get_asset` | One asset; optionally its technologies, services, certificates, DNS records, tags, screenshots and crawled URLs. |
 
 ### Domain tools
 
@@ -262,7 +264,7 @@ All tool names start with `assetnote_`.
 | Tool | What it does |
 |---|---|
 | `list_exposures` | A page of vulnerabilities or indicators by triage status (unresolved, triaged, resolved, ignored or all), signature class, asset group or asset. |
-| `get_exposure` | One exposure with the signature's description, recommendations and references and recent timeline events; optionally CVE intelligence (CVSS, EPSS, CISA KEV, public exploits) and other affected assets. |
+| `get_exposure` | One exposure with the signature's description, recommendations and references and recent timeline events (what happened and when, without who or their comments); optionally CVE intelligence (CVSS, EPSS, CISA KEV, public exploits) and other affected assets. |
 | `get_exposure_evidence` | The stored HTTP request or response, or code patch, for one exposure. |
 
 ### Technology tools
@@ -272,19 +274,12 @@ All tool names start with `assetnote_`.
 | `find_technology` | Technologies whose name contains some text, with their ids, asset counts, top versions and categories. |
 | `list_technologies` | A page of detected technologies with asset and version counts and their categories; optionally one category. |
 
-### User tools
+### Exports
 
 | Tool | What it does |
 |---|---|
-| `list_users` | A page of active users, or one user by id. Needs the CLIENT_ADMIN role. |
-
-### Counts and exports
-
-| Tool | What it does |
-|---|---|
-| `count` | The number of assets, exposures, indicators, technologies, domains, asset groups or users matching a scope and filters. |
 | `export_preview` | The row count and scope of an export, without starting it. |
-| `export_start` | Starts a CSV or JSON export of assets, exposures, indicators, technologies, domains, services, asset groups, asset tags, TLS certificates or IP ranges, with the same scope and filters as the list tools. Most clients ask you to approve it first. |
+| `export_start` | Starts a CSV or JSON export of assets, exposures, indicators, technologies, domains or asset groups, with the same scope and filters as the list tools. Most clients ask you to approve it first. |
 | `export_status` | Whether an export has finished, with a link to download it in the Assetnote UI. |
 
 ### Write tools
@@ -294,7 +289,10 @@ this server lets make each change; Assetnote can still refuse a change your role
 
 | Tool | What it does | Roles |
 |---|---|---|
-| `update_assets` | Turns monitoring or notifications on or off, marks assets sensitive or not, or verifies them, for up to 500 assets. Turning monitoring on can start scanning. | CLIENT_TECH, CLIENT_OPERATOR, CLIENT_ADMIN (sensitivity: CLIENT_TECH, CLIENT_ADMIN) |
+| `set_assets_monitored` | Turns monitoring on or off for up to 500 assets. Turning monitoring on can start scanning. | CLIENT_TECH, CLIENT_OPERATOR, CLIENT_ADMIN |
+| `set_assets_notifications` | Turns notifications on or off for up to 500 assets. | CLIENT_TECH, CLIENT_OPERATOR, CLIENT_ADMIN |
+| `set_assets_sensitive` | Marks up to 500 assets as sensitive or not. | CLIENT_TECH, CLIENT_ADMIN |
+| `verify_assets` | Verifies up to 500 assets. | CLIENT_TECH, CLIENT_OPERATOR, CLIENT_ADMIN |
 | `add_asset_tags` | Adds tags, by name, to up to 500 verified assets. Current tags are kept. The tags must already exist; create them in the Assetnote UI. | CLIENT_TECH, CLIENT_OPERATOR, CLIENT_ADMIN |
 | `clear_asset_tags` | Removes every tag from up to 500 assets. | CLIENT_TECH, CLIENT_OPERATOR, CLIENT_ADMIN |
 | `whitelist_asset_risk` | Marks assets' Mass VHosting risk as not risky. It can't be undone. | CLIENT_TECH, CLIENT_ADMIN |
@@ -303,7 +301,7 @@ this server lets make each change; Assetnote can still refuse a change your role
 | `import_hosts` | Adds up to 500 host names to a group and sends them to discovery, which starts scanning them. Assets appear only for names that resolve, after a few minutes or more. A host under a root domain that is already a source domain in another group is likely filed in that group; the preview names each root domain's group. | CLIENT_TECH, CLIENT_ADMIN |
 | `import_domains` | Adds up to 500 domains to a group as unmonitored source domains. Nothing is scanned. | CLIENT_TECH, CLIENT_ADMIN |
 | `import_ranges` | Adds up to 100 IPv4 ranges or addresses to a group. In a monitored group they are scanned. Ranges wider than /16 or in reserved space (such as loopback, multicast and the documentation blocks) are refused, and so is a range that would absorb one already in Assetnote; a range inside an existing one is skipped. Private (RFC 1918) ranges are allowed. | CLIENT_TECH, CLIENT_ADMIN |
-| `import_asns` | Adds up to 10 ASNs to a group, each expanded into every IPv4 block Assetnote's ASN data lists for it (possibly hundreds). In a monitored group they are scanned. Reserved ASNs (documentation, private and AS_TRANS 23456) are refused. | CLIENT_TECH, CLIENT_ADMIN |
+| `import_asns` | Adds up to 10 ASNs to a group, each expanded into every IPv4 block Assetnote's ASN data lists for it (possibly hundreds). Import only ASNs your organisation holds, not your hosting, cloud or CDN provider's. In a monitored group they are scanned. Reserved ASNs (documentation, private and AS_TRANS 23456) are refused. | CLIENT_TECH, CLIENT_ADMIN |
 | `task_status` | Whether a background change has finished, and how many records it changed. | Any |
 
 ## Troubleshooting
@@ -313,14 +311,14 @@ this server lets make each change; Assetnote can still refuse a change your role
 | "This server cannot connect to that instance" (at sign-in) | The instance label is mistyped, or your instance isn't in the beta yet. Enter the first part of your Assetnote address; contact Assetnote to join the beta. |
 | "This page expired" (at sign-in) | The sign-in was left open for over ten minutes, already used, or opened in another browser. Start again from your client. |
 | "The linked Assetnote credential is no longer valid. Reconnect this account." | The credential was rotated, deleted, or its user deactivated. Reconnect from your client. |
-| A role limit (`ROLE_LIMIT`) | Your credential's Assetnote role doesn't offer that data, for example users below CLIENT_ADMIN. The connection is fine. |
+| A role limit (`ROLE_LIMIT`) | Your credential's Assetnote role doesn't offer that data. The connection is fine. |
 | `insufficient_scope` | The connection was made without **Change data**. Reconnect and turn it on, or let your client step up. |
 | "This credential's current Assetnote role does not permit this change" | Your role can't make that change; ask an admin, or use a credential with a higher role. |
 | "Assetnote requires this user to accept an updated agreement" | Sign in to the Assetnote UI, accept the agreement, then retry. |
 | "Rate limit exceeded for this credential" | More than 60 calls in a minute. Wait a moment and retry. |
 | "Export quota exceeded" | More than 10 exports started in a minute, for your credential or your instance. Retry in a minute. |
 | A filter is rejected | The error names the clauses Assetnote rejected and lists the fields that can be filtered. |
-| Rows past 2,500 are refused | Ask for a count, or an export for the rows. |
+| Rows past 2,500 are refused | Ask how many, or for an export of the rows. |
 | Large evidence is refused | Responses over 8 MiB from Assetnote can't be returned; view the evidence in the Assetnote UI. |
 | An export's link is no longer available from the assistant | The assistant can check an export for 24 hours after starting it. The file itself stays in the Assetnote UI for 14 days. |
 
@@ -332,7 +330,7 @@ this server lets make each change; Assetnote can still refuse a change your role
 - Results the assistant reads become part of your conversation, so your AI provider receives them as it
   does any other conversation content. Choose a client and plan that meet your organisation's data
   policies.
-- Evidence, notes, page titles and other stored content can contain text written by scanned targets or
+- Evidence, page titles and other stored content can contain text written by scanned targets or
   other users. The server marks it as data, not instructions, and the assistant should never act on it.
 - Exports are created on your instance and downloaded from its UI by a signed-in user; the server never
   downloads or emails them.
