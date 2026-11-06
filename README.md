@@ -195,7 +195,8 @@ Results are kept small so a conversation doesn't fill up with raw data.
 
 **Filters and sorts.** The assistant builds filters from your question. Under the hood, the list and
 export tools take filters as `{field, op, value}` objects (with `rel` for a related record, such as
-`preflightMetadata` or `tags`; each tool lists the related records it accepts) and sorts as `{field, dir}` with `dir` `ASC` or `DESC`. Operators are
+`preflightMetadata` or `tags`; each tool lists the related records it accepts) and sorts as `{field, dir}` with `dir` `ASC` or `DESC`. A
+field is one name, on the record or on the related record in `rel`. Operators are
 `EQ`, `NOT`, `LT`, `LTE`, `GT`, `GTE`, `CONTAINS` and `DOES_NOT_CONTAIN`. Dates take an ISO datetime or a
 time relative to now, such as `-7d`, `-24h` or `+30d`. If Assetnote rejects a filter, the error names the
 clause and lists the fields that can be filtered.
@@ -244,7 +245,7 @@ All tool names start with `assetnote_`.
 | Tool | What it does |
 |---|---|
 | `list_asset_groups` | A page of asset groups with asset, monitored, technology and service counts and the exposure rating. |
-| `get_asset_group` | One group: counts, exposure rating, recon settings, notification settings and targets; optionally its blacklisted hosts and port scan profile. |
+| `get_asset_group` | One group: counts, exposure rating, recon settings, notification settings and targets (email targets by id, Slack targets by channel); optionally its blacklisted hosts and port scan profile. |
 
 ### Asset tools
 
